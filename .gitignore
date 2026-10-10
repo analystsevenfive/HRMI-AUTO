@@ -1,0 +1,8 @@
+.env
+.env.*
+!.env.example
+logs/
+.venv/
+__pycache__/
+node_modules/
+hrmi-navigation.json
