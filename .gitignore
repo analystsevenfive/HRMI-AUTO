@@ -2,6 +2,9 @@
 .env.*
 !.env.example
 logs/
+exports/
+*.inspect.ndjson
+~$*.xlsx
 .venv/
 __pycache__/
 node_modules/
