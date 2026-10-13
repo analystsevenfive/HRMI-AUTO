@@ -3,7 +3,7 @@ import json
 import os
 import sys
 import zipfile
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -19,8 +19,10 @@ USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
 ENDPOINTS = {
     "ขาด": f"{BASE_URL}/ajax/import_absenteeism/Import.php",
     "สาย": f"{BASE_URL}/ajax/import_checkin/Import.php",
+    "ลา": f"{BASE_URL}/ajax/import_leave_work/Import.php",
 }
-TYPE_ALIASES = {"absence": "ขาด", "late": "สาย", "ขาด": "ขาด", "สาย": "สาย"}
+TYPE_ALIASES = {"absence": "ขาด", "late": "สาย", "leave": "ลา",
+                "ขาด": "ขาด", "สาย": "สาย", "ลา": "ลา"}
 ORGANIZATIONS = ("BB", "BK", "NTS", "PK", "SM")
 SPREADSHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 
@@ -33,6 +35,26 @@ def report_file(export_root: Path, organization: str, report_type: str,
                 start: date, end: date) -> Path:
     period = date_folder(start, end)
     return export_root / period / f"HRMI_{organization}_{report_type}_{period}.xlsx"
+
+
+def resolve_today_leave_folder(root: Path, today: date | None = None) -> Path:
+    """Select the only direct child folder whose Windows creation date is today."""
+    if not root.is_dir():
+        raise RuntimeError(f"ไม่พบ Share Center root: {root}")
+    target_date = today or date.today()
+    matches = sorted(
+        (path for path in root.iterdir()
+         if path.is_dir() and datetime.fromtimestamp(path.stat().st_ctime).date() == target_date),
+        key=lambda path: path.name,
+    )
+    if not matches:
+        raise RuntimeError(f"ไม่พบโฟลเดอร์ที่สร้างวันที่ {target_date:%d/%m/%Y} ใน {root}")
+    if len(matches) > 1:
+        names = ", ".join(path.name for path in matches)
+        raise RuntimeError(
+            f"พบโฟลเดอร์ที่สร้างวันที่ {target_date:%d/%m/%Y} มากกว่า 1 โฟลเดอร์ใน {root}: {names}"
+        )
+    return matches[0]
 
 
 def xlsx_has_data(path: Path) -> bool:
@@ -107,6 +129,10 @@ def main() -> int:
     parser.add_argument("--organizations", nargs="+", default=list(ORGANIZATIONS), choices=ORGANIZATIONS)
     parser.add_argument("--types", nargs="+", default=["absence", "late"], choices=list(TYPE_ALIASES))
     parser.add_argument("--export-path", type=Path, default=ROOT / "exports")
+    parser.add_argument("--leave-folder", type=Path,
+                        help="Share Center folder containing approved-leave .xlsx files")
+    parser.add_argument("--leave-root", type=Path,
+                        help="Share Center root; select its child folder created today")
     args = parser.parse_args()
     if bool(args.start_date) != bool(args.end_date):
         parser.error("ต้องระบุ --start-date และ --end-date พร้อมกัน")
@@ -132,7 +158,24 @@ def main() -> int:
 
     selected_types = [TYPE_ALIASES[value] for value in args.types]
     jobs = [(org, kind, report_file(args.export_path, org, kind, start, end))
-            for org in args.organizations for kind in selected_types]
+            for org in args.organizations for kind in selected_types if kind != "ลา"]
+    if "ลา" in selected_types:
+        if args.leave_folder and args.leave_root:
+            parser.error("ระบุได้อย่างใดอย่างหนึ่ง: --leave-folder หรือ --leave-root")
+        try:
+            leave_folder = (resolve_today_leave_folder(args.leave_root)
+                            if args.leave_root else args.leave_folder)
+        except RuntimeError as exc:
+            parser.error(str(exc))
+        if not leave_folder or not leave_folder.is_dir():
+            parser.error("--types leave ต้องระบุ --leave-folder หรือ --leave-root ที่มีอยู่จริง")
+        if args.leave_root:
+            print(f"เลือกโฟลเดอร์ลาของวันนี้: {leave_folder}", flush=True)
+        leave_files = sorted(path for path in leave_folder.glob("*.xlsx")
+                             if not path.name.startswith("~$"))
+        if not leave_files:
+            parser.error(f"ไม่พบไฟล์ .xlsx ใน {leave_folder}")
+        jobs.extend((path.stem, "ลา", path) for path in leave_files)
     missing = [str(path) for _, _, path in jobs if not path.is_file() or path.stat().st_size == 0]
     if missing:
         print("หยุด: ไม่พบไฟล์:\n" + "\n".join(missing), file=sys.stderr)

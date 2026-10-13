@@ -8,7 +8,8 @@ from pathlib import Path
 
 from hrmi import (Hrmi, SingleInstance, completed_organizations, organizations_to_run,
                   parse_cli_date, scheduled_processing_range)
-from rocket75_import import date_folder, report_file, xlsx_has_data
+from rocket75_import import (date_folder, report_file, resolve_today_leave_folder,
+                             xlsx_has_data)
 
 
 ORGS = ["[BB]", "[BK]", "[NTS]", "[PK]", "[SM]"]
@@ -148,6 +149,23 @@ class ScheduleTests(unittest.TestCase):
         with zipfile.ZipFile(path, "w") as workbook:
             workbook.writestr("xl/worksheets/sheet1.xml", data)
         self.assertTrue(xlsx_has_data(path))
+
+    def test_leave_root_selects_only_folder_created_today(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        expected = root / "101069"
+        expected.mkdir()
+        self.assertEqual(resolve_today_leave_folder(root, date.today()), expected)
+
+    def test_leave_root_stops_when_multiple_folders_were_created_today(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        (root / "first").mkdir()
+        (root / "second").mkdir()
+        with self.assertRaisesRegex(RuntimeError, "มากกว่า 1 โฟลเดอร์"):
+            resolve_today_leave_folder(root, date.today())
 
 
 if __name__ == "__main__":
