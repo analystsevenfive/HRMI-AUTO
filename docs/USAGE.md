@@ -40,7 +40,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-new-machine.ps
 .\install-new-machine.ps1 -InstallDailyTask
 ```
 
-คำสั่งสุดท้ายต้องรันใน PowerShell แบบ **Run as administrator** และจะสร้าง Scheduled Task เวลา 09:00 ใช้ `-DailyAt "07:30"` เมื่อต้องการเปลี่ยนเวลา
+คำสั่งสุดท้ายจะสร้าง Scheduled Task เวลา 10:00 ใช้ `-DailyAt "07:30"` เมื่อต้องการเปลี่ยนเวลา งานใช้สิทธิ์ผู้ใช้ปกติเมื่อเปิด PowerShell ปกติ และใช้สิทธิ์สูงสุดเมื่อเปิดแบบ **Run as administrator** ให้สิทธิ์ตรงกับ HRMI ที่ใช้งาน
 
 ## กฎช่วงวันที่อัตโนมัติ
 
@@ -116,6 +116,8 @@ Import ทั้งขาดและสายครบทุกสาขา:
 
 สคริปต์ Login ด้วย `ROCKET_USER` และ `ROCKET_PASSWORD` และสร้าง key/token ใหม่ในหน่วยความจำทุกครั้ง token จะไม่ถูกบันทึกลงไฟล์
 
+ทุกประเภท Import ตรวจเฉพาะวันที่ Created ของโฟลเดอร์ที่เก็บไฟล์ ซึ่งต้องเป็นวันปัจจุบันตามเวลาไทย ไม่ตรวจ Created หรือ Modified ของแต่ละไฟล์ และไม่ใช้วันที่ในชื่อโฟลเดอร์แทน Created โฟลเดอร์ที่สร้างวันอื่นจะถูกข้าม แม้ระบุช่วงวันที่เอง
+
 ก่อน Import ระบบจะอ่านทุก worksheet หากไฟล์มีเฉพาะหัวตารางและไม่มีข้อมูลตั้งแต่แถวที่ 2 ระบบจะแสดง `ข้ามไฟล์เปล่า` และไม่ส่งไฟล์นั้นไป Rocket75 หากเว็บแจ้งข้อมูลซ้ำหรือข้อผิดพลาด ระบบจะหยุดเพื่อให้ตรวจสอบก่อนรันต่อ
 
 Import รายงานอนุมัติลาจาก Share Center:
@@ -130,9 +132,42 @@ Import รายงานอนุมัติลาจาก Share Center:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup-daily-task.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup-export-import-tasks.ps1
 ```
 
-Task `HRMI AUTO Daily` รันเวลา 09:00 และทำเฉพาะ flow ประมวลผลเวลา ต้องเปิดเครื่อง Login Windows ค้างไว้ ไม่ Lock หน้าจอ และไม่ให้เครื่อง Sleep
+| เวลาไทยทุกวัน | Scheduled Task | งาน |
+|---|---|---|
+| 10:00 | `HRMI AUTO Daily` | ประมวลผลเวลา HRMI |
+| 14:00 | `HRMI AUTO Export` | Export ขาดและสาย |
+| 14:30 | `HRMI AUTO Rocket75 Import` | Import ขาดและสายเข้า Rocket75 |
+| 15:00 | `HRMI AUTO Leave Import` | Import ลาจาก `T:\HR_Leave_Approved` |
+
+คำสั่งติดตั้งจะสร้างหรืออัปเดตงานชื่อเดิม ไม่เริ่ม Import ทันที Windows ต้องใช้เขตเวลา Bangkok (`SE Asia Standard Time`) ต้องเปิดเครื่อง Login Windows ค้างไว้ ไม่ Lock หน้าจอ และไม่ให้เครื่อง Sleep ระหว่างงาน HRMI รวมถึงต้องเข้าถึงไดรฟ์ `T:` ได้ตอน Import ลา งาน Export และ Import ไม่ลองใหม่อัตโนมัติ งานประมวลผลเวลาลองใหม่ทุก 30 นาที สูงสุด 3 ครั้งเมื่อผิดพลาด
+
+เวลาของแต่ละงานเป็นตารางแยกกัน ไม่ได้รอให้งานก่อนหน้าจบ ควรตรวจให้ Export เสร็จก่อนรอบ Import
+
+ตรวจสถานะและรอบถัดไป:
+
+```powershell
+Get-ScheduledTask -TaskName 'HRMI AUTO*' | Get-ScheduledTaskInfo
+```
+
+Log ของงานอัตโนมัติ:
+
+- ประมวลผลเวลา: `logs\scheduler.log`
+- Export: `logs\export-scheduler.log`
+- Import ขาดและสาย: `logs\import-scheduler.log`
+- Import ลา: `logs\leave-import-scheduler.log`
+
+เรียกสคริปต์ Import ลาพร้อมบันทึก log ด้วยตนเอง:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run-rocket75-leave-scheduled.ps1
+```
+
+เปลี่ยน Share Center root ได้ด้วย `-LeaveRoot "เส้นทางโฟลเดอร์"` สคริปต์หยุดเมื่อเข้าถึงโฟลเดอร์ไม่ได้ หรือไม่พบโฟลเดอร์ย่อย Created วันนี้เพียงหนึ่งโฟลเดอร์
+
+ตัวสร้าง Excel บันทึกเวลาใช้ Python `openpyxl` จาก `requirements.txt` ไม่ต้องติดตั้ง `@oai/artifact-tool`
 
 ## ตรวจสอบก่อนใช้งาน
 

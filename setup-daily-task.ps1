@@ -1,7 +1,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$TaskName = "HRMI AUTO Daily",
-    [datetime]$DailyAt = "09:00"
+    [datetime]$DailyAt = "10:00"
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,24 +19,27 @@ if (-not (Test-Path -LiteralPath $python)) {
 if ($LASTEXITCODE -ne 0) { throw "Failed to install Python dependencies." }
 
 if (-not (Test-Path -LiteralPath $navigation)) {
-    throw "hrmi-navigation.json not found. Calibrate Time Attendance on this computer before scheduling."
+    Write-Host "No saved coordinates; HRMI will use UI Automation to find Time Attendance."
 }
 
 $action = New-ScheduledTaskAction `
     -Execute "powershell.exe" `
     -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$runner`"" `
     -WorkingDirectory $projectRoot
-$trigger = New-ScheduledTaskTrigger -Daily -At $DailyAt
+$trigger = New-ScheduledTaskTrigger -Daily -At ((Get-Date).Date.Add($DailyAt.TimeOfDay))
 $settings = New-ScheduledTaskSettingsSet `
     -RestartCount 3 `
     -RestartInterval (New-TimeSpan -Minutes 30) `
     -ExecutionTimeLimit (New-TimeSpan -Hours 6) `
     -MultipleInstances IgnoreNew `
     -StartWhenAvailable
+$identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+$windowsPrincipal = New-Object System.Security.Principal.WindowsPrincipal($identity)
+$runLevel = if ($windowsPrincipal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)) { 'Highest' } else { 'Limited' }
 $principal = New-ScheduledTaskPrincipal `
-    -UserId ([System.Security.Principal.WindowsIdentity]::GetCurrent().Name) `
+    -UserId $identity.Name `
     -LogonType Interactive `
-    -RunLevel Highest
+    -RunLevel $runLevel
 
 if ($PSCmdlet.ShouldProcess($TaskName, "Create daily Scheduled Task at $($DailyAt.ToString('HH:mm'))")) {
     Register-ScheduledTask `

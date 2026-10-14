@@ -111,10 +111,11 @@ HRMI ใช้ custom controls บางส่วน จึงยังต้อ
 
 ## รันอัตโนมัติทุกวัน
 
-รัน PowerShell ต่อไปนี้หนึ่งครั้งเพื่อสร้าง virtual environment ติดตั้ง dependencies และสร้าง Scheduled Task ชื่อ `HRMI AUTO Daily` เวลา 09:00 ทุกวัน:
+หลังติดตั้ง dependencies แล้ว รันคำสั่งต่อไปนี้เพื่อสร้างหรืออัปเดต Scheduled Task ทั้ง 4 งาน:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup-daily-task.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup-export-import-tasks.ps1
 ```
 
 Task จะเรียก `run-hrmi-scheduled.ps1` ในโหมด `--scheduled` สำหรับประมวลผลเวลาเท่านั้น โดยไม่สร้างรายงาน ตรวจผลของวันที่เป้าหมายก่อนเริ่มและข้ามสาขาที่สำเร็จแล้ว เมื่อสคริปต์จบด้วยข้อผิดพลาด Task Scheduler จะลองใหม่ทุก 30 นาที สูงสุด 3 ครั้ง
@@ -139,7 +140,26 @@ Unregister-ScheduledTask -TaskName 'HRMI AUTO Daily' -Confirm:$false
 .\.venv\Scripts\python.exe .\hrmi.py --auto-login --force
 ```
 
-เนื่องจากระบบใช้ `pywinauto` และ HRMI ต้องใช้สิทธิ์ยกระดับ Task จะตั้งเป็น `Run only when user is logged on` และ `Run with highest privileges` เครื่องต้องเปิดและ Login Windows ค้างไว้โดยไม่ Lock หน้าจอหรือเข้า Sleep ระหว่างประมวลผล
+| เวลาไทยทุกวัน | งาน |
+|---|---|
+| 10:00 | ประมวลผลเวลา HRMI |
+| 14:00 | Export รายงานขาดและสาย |
+| 14:30 | Import ขาดและสายเข้า Rocket75 |
+| 15:00 | Import ลาจาก `T:\HR_Leave_Approved` |
+
+Import ตรวจเฉพาะ Created ของโฟลเดอร์ที่เก็บไฟล์ว่าตรงกับวันปัจจุบันตามเวลาไทย ไม่ตรวจวันที่ Created ของแต่ละไฟล์ และข้าม Excel ที่ไม่มีข้อมูล สำหรับลา ต้องพบโฟลเดอร์ย่อย Created วันนี้เพียงหนึ่งโฟลเดอร์
+
+Task ใช้ `Run only when user is logged on` และใช้สิทธิ์ตาม PowerShell ที่ติดตั้ง: ผู้ใช้ปกติหรือสูงสุดเมื่อเปิดแบบ Administrator ให้สิทธิ์ตรงกับ HRMI เครื่องต้องเปิดและ Login Windows ค้างไว้โดยไม่ Lock หน้าจอหรือเข้า Sleep ระหว่างงาน HRMI และเข้าถึงไดรฟ์ `T:` ได้ตอน Import ลา งานแต่ละเวลาแยกกัน จึงควรตรวจว่า Export เสร็จก่อน Import
+
+Log อยู่ที่ `logs\scheduler.log`, `logs\export-scheduler.log`, `logs\import-scheduler.log` และ `logs\leave-import-scheduler.log` รายละเอียดคำสั่งอยู่ใน [คู่มือใช้งาน](docs/USAGE.md#ติดตั้ง-scheduled-task)
+
+เรียก Import ลาพร้อมบันทึก log ด้วยตนเอง:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\run-rocket75-leave-scheduled.ps1
+```
+
+Excel บันทึกเวลาใช้ `openpyxl` ที่ติดตั้งจาก `requirements.txt` ไม่ต้องใช้ `@oai/artifact-tool`
 
 ### ติดตั้งบนเครื่องใหม่
 
@@ -148,7 +168,7 @@ Unregister-ScheduledTask -TaskName 'HRMI AUTO Daily' -Confirm:$false
 3. ดับเบิลคลิก `install-new-machine.cmd` หรือรัน `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-new-machine.ps1`
 4. กรอกบัญชีใน `.env`
 5. รัน `.\.venv\Scripts\python.exe .\hrmi.py --auto-login --stop-before-next --calibrate-time-attendance` เพื่อสร้างตำแหน่งเมนูสำหรับเครื่องนั้น
-6. เปิด PowerShell แบบ **Run as administrator** แล้วรัน `.\install-new-machine.ps1 -InstallDailyTask` เพื่อสร้าง Scheduled Task เวลา 09:00
+6. รัน `.\setup-daily-task.ps1` และ `.\setup-export-import-tasks.ps1` เพื่อสร้างงานอัตโนมัติทั้ง 4 งาน หาก HRMI ใช้สิทธิ์ Administrator ให้เปิด PowerShell แบบ **Run as administrator** ก่อนติดตั้ง Task
 
 หากต้องการเวลาอื่น เช่น 07:30:
 

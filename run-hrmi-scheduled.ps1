@@ -14,5 +14,5 @@ if (-not (Test-Path -LiteralPath $python)) {
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 Set-Location -LiteralPath $projectRoot
 
-& $python -u ".\hrmi.py" --scheduled --calibrate-time-attendance *>> $schedulerLog
+& $python -u ".\hrmi.py" --scheduled *>> $schedulerLog
 exit $LASTEXITCODE
