@@ -11,17 +11,16 @@ $requirements = Join-Path $projectRoot "requirements.txt"
 $runner = Join-Path $projectRoot "run-hrmi-scheduled.ps1"
 $navigation = Join-Path $projectRoot "hrmi-navigation.json"
 
-if (-not (Test-Path -LiteralPath $navigation)) {
-    throw "hrmi-navigation.json not found. Calibrate Time Attendance before scheduling."
-}
-
 if (-not (Test-Path -LiteralPath $python)) {
-    & py -m venv (Join-Path $projectRoot ".venv")
-    if ($LASTEXITCODE -ne 0) { throw "Failed to create the virtual environment." }
+    throw "Virtual environment not found. Run install-new-machine.ps1 first."
 }
 
 & $python -m pip install -r $requirements
 if ($LASTEXITCODE -ne 0) { throw "Failed to install Python dependencies." }
+
+if (-not (Test-Path -LiteralPath $navigation)) {
+    throw "hrmi-navigation.json not found. Calibrate Time Attendance on this computer before scheduling."
+}
 
 $action = New-ScheduledTaskAction `
     -Execute "powershell.exe" `

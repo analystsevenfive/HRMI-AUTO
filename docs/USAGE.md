@@ -23,6 +23,25 @@ ROCKET_PASSWORD=
 
 ไฟล์นี้ถูกยกเว้นจาก Git ห้าม commit ชื่อผู้ใช้ รหัสผ่าน key หรือ token
 
+## ติดตั้งบนเครื่องใหม่
+
+หลังติดตั้ง Prosoft HRMI, Python 3.10 ขึ้นไป และ Node.js LTS ให้เปิด PowerShell ในโฟลเดอร์โปรเจกต์แล้วรัน:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-new-machine.ps1
+```
+
+สามารถดับเบิลคลิก `install-new-machine.cmd` แทนคำสั่งข้างต้นได้
+
+สคริปต์จะสร้าง `.venv`, ติดตั้ง dependencies, สร้าง `.env` จากตัวอย่างเมื่อยังไม่มี และตรวจโปรแกรมที่จำเป็น จากนั้นกรอกบัญชีใน `.env` และปรับเทียบตำแหน่งเมนูของเครื่องใหม่:
+
+```powershell
+.\.venv\Scripts\python.exe .\hrmi.py --auto-login --stop-before-next --calibrate-time-attendance
+.\install-new-machine.ps1 -InstallDailyTask
+```
+
+คำสั่งสุดท้ายสร้าง Scheduled Task เวลา 06:00 ใช้ `-DailyAt "07:30"` เมื่อต้องการเปลี่ยนเวลา
+
 ## กฎช่วงวันที่อัตโนมัติ
 
 - วันอังคาร: ใช้วันเสาร์ถึงวันอาทิตย์ล่าสุด

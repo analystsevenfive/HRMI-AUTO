@@ -12,11 +12,13 @@
 
 ใช้ Windows ที่ติดตั้ง Prosoft HRMI และมี desktop session ที่ใช้งานได้:
 
+ดับเบิลคลิก `install-new-machine.cmd` หรือใช้คำสั่ง:
+
 ```powershell
-py -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe hrmi.py --auto-login --calibrate-time-attendance
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-new-machine.ps1
 ```
+
+ตัวติดตั้งจะตรวจ Python 3.10 ขึ้นไป, Node.js และ Prosoft HRMI จากนั้นสร้าง `.venv`, ติดตั้ง dependencies, สร้าง `.env` จากตัวอย่าง และตรวจว่าโมดูลพร้อมใช้งาน โดยจะไม่เขียนทับ `.env` เดิม
 
 กำหนด `HRMI_USER` และ `HRMI_PASSWORD` ใน environment หรือไฟล์ `.env` ก่อนใช้ `--auto-login` ไฟล์ `.env` ถูกยกเว้นจาก Git อย่าเผยแพร่ไฟล์นี้
 
@@ -141,7 +143,17 @@ Unregister-ScheduledTask -TaskName 'HRMI AUTO Daily' -Confirm:$false
 
 ### ติดตั้งบนเครื่องใหม่
 
-1. ติดตั้ง Prosoft HRMI, Python และ Node.js
-2. Clone repository และสร้างไฟล์ `.env` ที่มี `HRMI_USER` และ `HRMI_PASSWORD`
-3. เปิด HRMI แล้วรัน `py hrmi.py --auto-login --stop-before-next --calibrate-time-attendance` เพื่อสร้าง `hrmi-navigation.json`
-4. รัน `setup-daily-task.ps1` เพื่อสร้าง `.venv` และ Scheduled Task ของเครื่องใหม่
+1. ติดตั้ง Prosoft HRMI, Python 3.10 ขึ้นไป และ Node.js LTS
+2. Clone `https://github.com/analystsevenfive/HRMI-AUTO.git` หรือดาวน์โหลด ZIP แล้วแตกไฟล์
+3. ดับเบิลคลิก `install-new-machine.cmd` หรือรัน `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-new-machine.ps1`
+4. กรอกบัญชีใน `.env`
+5. รัน `.\.venv\Scripts\python.exe .\hrmi.py --auto-login --stop-before-next --calibrate-time-attendance` เพื่อสร้างตำแหน่งเมนูสำหรับเครื่องนั้น
+6. รัน `.\install-new-machine.ps1 -InstallDailyTask` เพื่อสร้าง Scheduled Task เวลา 06:00
+
+หากต้องการเวลาอื่น เช่น 07:30:
+
+```powershell
+.\install-new-machine.ps1 -InstallDailyTask -DailyAt "07:30"
+```
+
+ไฟล์ `.env` และ `hrmi-navigation.json` เป็นค่าประจำเครื่องและไม่ถูกเก็บใน Git เมื่อติดตั้งเครื่องใหม่จึงต้องสร้างและปรับเทียบอีกครั้ง
