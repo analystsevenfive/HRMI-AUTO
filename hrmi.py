@@ -213,10 +213,10 @@ class Hrmi:
             "message": message,
         })
         self.timing_json.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
-        builder = ROOT / "build_processing_times.mjs"
+        builder = ROOT / "build_timing_excel.py"
         try:
             subprocess.run(
-                ["node", str(builder), str(self.timing_json), str(self.timing_xlsx)],
+                [sys.executable, str(builder), str(self.timing_json), str(self.timing_xlsx), "processing"],
                 cwd=ROOT,
                 check=True,
                 stdout=subprocess.DEVNULL,
@@ -288,7 +288,25 @@ class Hrmi:
         handle = win32gui.WindowFromPoint((x, y))
         _, pid = win32process.GetWindowThreadProcessId(handle)
         if pid != self.pid:
-            raise RuntimeError(f"ตำแหน่งคลิก ({x},{y}) ไม่ได้อยู่บนหน้าต่าง HRMI")
+            # Focus can be stolen after activation, for example by an editor.
+            # Restore only an HRMI window containing the intended point, then
+            # repeat the ownership check before sending any mouse input.
+            candidates = []
+            for window in self.windows():
+                rect = window.rectangle()
+                if rect.left <= x < rect.right and rect.top <= y < rect.bottom:
+                    candidates.append(window)
+            if candidates:
+                owner = min(candidates, key=lambda w: w.rectangle().width() * w.rectangle().height())
+                bounds = owner.rectangle()
+                self.activate(owner)
+                current = owner.rectangle()
+                if (current.left, current.top, current.right, current.bottom) != (bounds.left, bounds.top, bounds.right, bounds.bottom):
+                    raise RuntimeError("หน้าต่าง HRMI ย้ายตำแหน่งระหว่างเตรียมคลิก; กรุณารันใหม่")
+                handle = win32gui.WindowFromPoint((x, y))
+                _, pid = win32process.GetWindowThreadProcessId(handle)
+            if pid != self.pid:
+                raise RuntimeError(f"ตำแหน่งคลิก ({x},{y}) ไม่ได้อยู่บนหน้าต่าง HRMI; มีหน้าต่างอื่นบังอยู่")
         mouse.click(coords=(x, y))
 
     def connect(self) -> None:
@@ -544,12 +562,30 @@ class Hrmi:
             raise RuntimeError(f"ตั้งตัวเลือก {wanted} ไม่สำเร็จ: {control.window_text()}")
 
     def popup_below(self, control_rect):
-        for popup in self.windows():
-            rect = popup.rectangle()
-            if (not popup.window_text() and abs(rect.left - control_rect.left) <= 5
-                    and abs(rect.top - control_rect.bottom) <= 5
-                    and 180 <= rect.width() <= 280 and 175 <= rect.height() <= 260):
-                return popup
+        deadline = time.monotonic() + 3
+        while time.monotonic() < deadline:
+            for window in self.windows():
+                for popup in [window, *window.descendants()]:
+                    rect = popup.rectangle()
+                    if (popup.is_visible() and abs(rect.left - control_rect.left) <= 8
+                            and abs(rect.top - control_rect.bottom) <= 8
+                            and 180 <= rect.width() <= 280 and 175 <= rect.height() <= 260):
+                        return popup
+            handles = []
+            def collect(handle, _):
+                if (win32gui.IsWindowVisible(handle)
+                        and win32process.GetWindowThreadProcessId(handle)[1] == self.pid):
+                    handles.append(handle)
+            win32gui.EnumWindows(collect, None)
+            for handle in list(handles):
+                win32gui.EnumChildWindows(handle, collect, None)
+            for handle in dict.fromkeys(handles):
+                left, top, right, bottom = win32gui.GetWindowRect(handle)
+                if (abs(left - control_rect.left) <= 8
+                        and abs(top - control_rect.bottom) <= 8
+                        and 180 <= right - left <= 280 and 175 <= bottom - top <= 260):
+                    return Desktop(backend="win32").window(handle=handle).wrapper_object()
+            time.sleep(.15)
         raise RuntimeError("ไม่พบปฏิทินหรือรายการเดือนของ HRMI")
 
     def choose_calendar_date(self, automation_id: str, target_date: date) -> None:
@@ -641,10 +677,10 @@ class Hrmi:
         })
         self.report_log.parent.mkdir(parents=True, exist_ok=True)
         self.report_log.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
-        builder = ROOT / "build_report_export_times.mjs"
+        builder = ROOT / "build_timing_excel.py"
         try:
             subprocess.run(
-                ["node", str(builder), str(self.report_log), str(self.report_timing_xlsx)],
+                [sys.executable, str(builder), str(self.report_log), str(self.report_timing_xlsx), "reports"],
                 cwd=ROOT, check=True, text=True,
                 stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
             )
