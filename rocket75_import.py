@@ -9,7 +9,7 @@ from xml.etree import ElementTree
 
 import requests
 
-from hrmi import ROOT, load_env, parse_cli_date, scheduled_processing_range
+from hrmi import BANGKOK_TZ, ROOT, load_env, parse_cli_date, scheduled_processing_range
 
 
 BASE_URL = "https://rocket75.com/hr"
@@ -37,14 +37,25 @@ def report_file(export_root: Path, organization: str, report_type: str,
     return export_root / period / f"HRMI_{organization}_{report_type}_{period}.xlsx"
 
 
+def created_date(path: Path) -> date:
+    """Read Windows Created date of a folder in Bangkok time."""
+    metadata = path.stat()
+    timestamp = getattr(metadata, "st_birthtime", None)
+    if timestamp is None:
+        if os.name != "nt":
+            raise RuntimeError("ระบบนี้ไม่รองรับวันที่ Created ของไฟล์")
+        timestamp = metadata.st_ctime
+    return datetime.fromtimestamp(timestamp, BANGKOK_TZ).date()
+
+
 def resolve_today_leave_folder(root: Path, today: date | None = None) -> Path:
     """Select the only direct child folder whose Windows creation date is today."""
     if not root.is_dir():
         raise RuntimeError(f"ไม่พบ Share Center root: {root}")
-    target_date = today or date.today()
+    target_date = today or datetime.now(BANGKOK_TZ).date()
     matches = sorted(
         (path for path in root.iterdir()
-         if path.is_dir() and datetime.fromtimestamp(path.stat().st_ctime).date() == target_date),
+         if path.is_dir() and created_date(path) == target_date),
         key=lambda path: path.name,
     )
     if not matches:
@@ -182,17 +193,28 @@ def main() -> int:
         return 2
 
     ready_jobs = []
+    import_date = datetime.now(BANGKOK_TZ).date()
+    skipped_created = 0
+    skipped_empty = 0
+    print(f"นำเข้าเฉพาะโฟลเดอร์ Created วันที่ {import_date:%d/%m/%Y} (เวลาไทย)", flush=True)
+    folder_dates = {path.parent: created_date(path.parent) for _, _, path in jobs}
     for org, kind, path in jobs:
+        folder_date = folder_dates[path.parent]
+        if folder_date != import_date:
+            skipped_created += 1
+            print(f"ข้าม [{org}] {kind}: โฟลเดอร์ {path.parent} Created {folder_date:%d/%m/%Y}", flush=True)
+            continue
         if xlsx_has_data(path):
             ready_jobs.append((org, kind, path))
         else:
+            skipped_empty += 1
             print(f"ข้ามไฟล์เปล่า [{org}] {kind}: {path.name}", flush=True)
 
     for org, kind, path in ready_jobs:
         print(f"Import [{org}] {kind}: {path.name}", flush=True)
         upload_file(session, path, kind, key, token)
         print(f"สำเร็จ [{org}] {kind}", flush=True)
-    print(f"เสร็จ: Import {len(ready_jobs)} ไฟล์; ข้ามไฟล์เปล่า {len(jobs) - len(ready_jobs)} ไฟล์")
+    print(f"เสร็จ: Import {len(ready_jobs)} ไฟล์; ข้ามเพราะวันที่ Created ของโฟลเดอร์ {skipped_created} ไฟล์; ข้ามไฟล์เปล่า {skipped_empty} ไฟล์")
     return 0
 
 
