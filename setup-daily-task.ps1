@@ -1,7 +1,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$TaskName = "HRMI AUTO Daily",
-    [datetime]$DailyAt = "06:00"
+    [datetime]$DailyAt = "09:00"
 )
 
 $ErrorActionPreference = "Stop"

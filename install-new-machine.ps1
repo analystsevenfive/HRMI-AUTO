@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [switch]$InstallDailyTask,
-    [datetime]$DailyAt = "06:00",
+    [datetime]$DailyAt = "09:00",
     [string]$HrmiExe = "C:\Program Files (x86)\Prosoft\Prosoft HRMI\Bin\HRMI.exe"
 )
 
@@ -79,9 +79,9 @@ if (-not (Test-Path -LiteralPath $navigation)) {
     Write-Host "  1. Fill in .env"
     Write-Host "  2. Calibrate this computer:"
     Write-Host "     .\.venv\Scripts\python.exe .\hrmi.py --auto-login --stop-before-next --calibrate-time-attendance"
-    Write-Host "  3. Install the 06:00 task:"
+    Write-Host "  3. Install the 09:00 task:"
     Write-Host "     .\install-new-machine.ps1 -InstallDailyTask"
 }
 elseif (-not $InstallDailyTask) {
-    Write-Host "To install the 06:00 task: .\install-new-machine.ps1 -InstallDailyTask"
+    Write-Host "To install the 09:00 task: .\install-new-machine.ps1 -InstallDailyTask"
 }

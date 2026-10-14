@@ -40,7 +40,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-new-machine.ps
 .\install-new-machine.ps1 -InstallDailyTask
 ```
 
-คำสั่งสุดท้ายสร้าง Scheduled Task เวลา 06:00 ใช้ `-DailyAt "07:30"` เมื่อต้องการเปลี่ยนเวลา
+คำสั่งสุดท้ายต้องรันใน PowerShell แบบ **Run as administrator** และจะสร้าง Scheduled Task เวลา 09:00 ใช้ `-DailyAt "07:30"` เมื่อต้องการเปลี่ยนเวลา
 
 ## กฎช่วงวันที่อัตโนมัติ
 
@@ -132,7 +132,7 @@ Import รายงานอนุมัติลาจาก Share Center:
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup-daily-task.ps1
 ```
 
-Task `HRMI AUTO Daily` รันเวลา 06:00 และทำเฉพาะ flow ประมวลผลเวลา ต้องเปิดเครื่อง Login Windows ค้างไว้ ไม่ Lock หน้าจอ และไม่ให้เครื่อง Sleep
+Task `HRMI AUTO Daily` รันเวลา 09:00 และทำเฉพาะ flow ประมวลผลเวลา ต้องเปิดเครื่อง Login Windows ค้างไว้ ไม่ Lock หน้าจอ และไม่ให้เครื่อง Sleep
 
 ## ตรวจสอบก่อนใช้งาน
 

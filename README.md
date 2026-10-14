@@ -111,7 +111,7 @@ HRMI ใช้ custom controls บางส่วน จึงยังต้อ
 
 ## รันอัตโนมัติทุกวัน
 
-รัน PowerShell ต่อไปนี้หนึ่งครั้งเพื่อสร้าง virtual environment ติดตั้ง dependencies และสร้าง Scheduled Task ชื่อ `HRMI AUTO Daily` เวลา 06:00 ทุกวัน:
+รัน PowerShell ต่อไปนี้หนึ่งครั้งเพื่อสร้าง virtual environment ติดตั้ง dependencies และสร้าง Scheduled Task ชื่อ `HRMI AUTO Daily` เวลา 09:00 ทุกวัน:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup-daily-task.ps1
@@ -148,7 +148,7 @@ Unregister-ScheduledTask -TaskName 'HRMI AUTO Daily' -Confirm:$false
 3. ดับเบิลคลิก `install-new-machine.cmd` หรือรัน `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install-new-machine.ps1`
 4. กรอกบัญชีใน `.env`
 5. รัน `.\.venv\Scripts\python.exe .\hrmi.py --auto-login --stop-before-next --calibrate-time-attendance` เพื่อสร้างตำแหน่งเมนูสำหรับเครื่องนั้น
-6. รัน `.\install-new-machine.ps1 -InstallDailyTask` เพื่อสร้าง Scheduled Task เวลา 06:00
+6. เปิด PowerShell แบบ **Run as administrator** แล้วรัน `.\install-new-machine.ps1 -InstallDailyTask` เพื่อสร้าง Scheduled Task เวลา 09:00
 
 หากต้องการเวลาอื่น เช่น 07:30:
 
