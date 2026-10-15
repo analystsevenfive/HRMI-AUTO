@@ -31,5 +31,14 @@ if ($LeaveRoot) {
     $arguments += @("--leave-root", $LeaveRoot)
 }
 Set-Location -LiteralPath $projectRoot
-& $python @arguments
-exit $LASTEXITCODE
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+    # Python warnings on stderr must not terminate Windows PowerShell.
+    $ErrorActionPreference = 'Continue'
+    & $python @arguments
+    $result = $LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
+exit $result

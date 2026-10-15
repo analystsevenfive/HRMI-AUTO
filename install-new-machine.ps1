@@ -14,6 +14,8 @@ $navigation = Join-Path $projectRoot "hrmi-navigation.json"
 
 function Invoke-SystemPython {
     param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
+    # This function checks native exit codes explicitly below.
+    $ErrorActionPreference = 'Continue'
     if (Get-Command py -ErrorAction SilentlyContinue) {
         & py -3 @Arguments
     }
@@ -41,7 +43,15 @@ if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
 }
 
 Write-Host "[3/6] Installing Python dependencies..."
-& $venvPython -m pip install --disable-pip-version-check -r (Join-Path $projectRoot "requirements.txt")
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+    # Python warnings on stderr must not terminate Windows PowerShell.
+    $ErrorActionPreference = 'Continue'
+    & $venvPython -m pip install --disable-pip-version-check -r (Join-Path $projectRoot "requirements.txt")
+}
+finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
 if ($LASTEXITCODE -ne 0) { throw "Failed to install Python dependencies." }
 
 Write-Host "[4/6] Preparing local configuration..."
@@ -54,9 +64,25 @@ else {
 }
 
 Write-Host "[5/6] Running installation checks..."
-& $venvPython -c "import psutil, requests, win32api; from pywinauto import Application; print('Python dependencies: OK')"
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+    # Python warnings on stderr must not terminate Windows PowerShell.
+    $ErrorActionPreference = 'Continue'
+    & $venvPython -c "import psutil, requests, win32api; from pywinauto import Application; print('Python dependencies: OK')"
+}
+finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
 if ($LASTEXITCODE -ne 0) { throw "Python dependency check failed." }
-& node --version
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+    # Python warnings on stderr must not terminate Windows PowerShell.
+    $ErrorActionPreference = 'Continue'
+    & node --version
+}
+finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
 if ($LASTEXITCODE -ne 0) { throw "Node.js check failed." }
 
 Write-Host "[6/6] Scheduled Task..."

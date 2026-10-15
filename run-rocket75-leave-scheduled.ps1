@@ -19,8 +19,16 @@ try {
     if (-not (Test-Path -LiteralPath $LeaveRoot -PathType Container)) {
         throw "Leave root is unavailable: $LeaveRoot"
     }
-    & $python -u (Join-Path $projectRoot 'rocket75_import.py') --types leave --leave-root $LeaveRoot *>> $logPath
-    $result = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        # Python warnings on stderr must not terminate Windows PowerShell.
+        $ErrorActionPreference = 'Continue'
+        & $python -u (Join-Path $projectRoot 'rocket75_import.py') --types leave --leave-root $LeaveRoot 2>&1 | Out-File -FilePath $logPath -Append -Encoding utf8
+        $result = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
 }
 catch {
     "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] ERROR: $($_.Exception.Message)" | Out-File -FilePath $logPath -Append -Encoding utf8

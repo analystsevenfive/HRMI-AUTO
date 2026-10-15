@@ -15,7 +15,15 @@ if (-not (Test-Path -LiteralPath $python)) {
     throw "Virtual environment not found. Run install-new-machine.ps1 first."
 }
 
-& $python -m pip install -r $requirements
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+    # Python warnings on stderr must not terminate Windows PowerShell.
+    $ErrorActionPreference = 'Continue'
+    & $python -m pip install -r $requirements
+}
+finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
 if ($LASTEXITCODE -ne 0) { throw "Failed to install Python dependencies." }
 
 if (-not (Test-Path -LiteralPath $navigation)) {
