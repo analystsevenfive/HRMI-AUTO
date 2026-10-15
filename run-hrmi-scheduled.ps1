@@ -14,5 +14,17 @@ if (-not (Test-Path -LiteralPath $python)) {
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 Set-Location -LiteralPath $projectRoot
 
-& $python -u ".\hrmi.py" --scheduled *>> $schedulerLog
-exit $LASTEXITCODE
+"[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Starting HRMI" | Out-File -FilePath $schedulerLog -Append
+# Windows PowerShell treats native stderr (including Python warnings) as errors.
+# Let Python finish and use its exit code to determine success.
+$previousErrorActionPreference = $ErrorActionPreference
+try {
+    $ErrorActionPreference = 'Continue'
+    & $python -u ".\hrmi.py" --scheduled *>> $schedulerLog
+    $result = $LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = $previousErrorActionPreference
+}
+"[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] Finished HRMI; exit=$result" | Out-File -FilePath $schedulerLog -Append
+exit $result
